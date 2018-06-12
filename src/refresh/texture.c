@@ -46,7 +46,6 @@ static cvar_t *gl_anisotropy;
 static cvar_t *gl_saturation;
 static cvar_t *gl_gamma;
 static cvar_t *gl_invert;
-// [sq2] particle shape
 static cvar_t *gl_partshape;
 
 cvar_t *gl_intensity;
@@ -873,58 +872,42 @@ static void GL_InitParticleTexture(void)
     byte *dst;
     float x, y, f;
     int i, j;
-    int shape;
+    int shape = Cvar_ClampInteger(gl_partshape, 0, 2);
+    int flags = IF_TRANSPARENT;
 
-    // [sq2] particle shape
-    shape = gl_partshape->integer;
-
-    memset(pixels, 0, sizeof(pixels));
-    dst = pixels;
-
-    if (shape == 1) // square
-        for (j = 0; j < 16; ++j) {
-            for (i = 0; i < 16; ++i) {
-                // 0 - 13
-                if (j >= 3 && j <= 12 && i >= 3 && i <= 12) {
-                    dst[0] = 255;
-                    dst[1] = 255;
-                    dst[2] = 255;
-                    dst[3] = 255 * 0.6f;
-                }
+    if (shape == 0 || shape == 2) {
+        dst = pixels;
+        for (i = 0; i < 16; i++) {
+            for (j = 0; j < 16; j++) {
+                x = j - 16 / 2 + 0.5f;
+                y = i - 16 / 2 + 0.5f;
+                f = sqrt(x * x + y * y);
+                f = 1.0f - f / ((16 - shape) / 2 - 0.5f);
+                f *= 1 << shape;
+                dst[0] = 255;
+                dst[1] = 255;
+                dst[2] = 255;
+                dst[3] = 255 * clamp(f, 0, 1 - shape * 0.2f);
                 dst += 4;
             }
         }
-    else // circle
-
-    for (i = 0; i < 16; i++) {
-        for (j = 0; j < 16; j++) {
-            x = j - 16 / 2 + 0.5f;
-            y = i - 16 / 2 + 0.5f;
-            f = sqrt(x * x + y * y);
-            // [sq2] shape 2 is a smaller, fuller circle
-            f = 1.0f - f / (((shape == 2) ? 14 : 16) / 2 - 0.5f);
-            if (shape == 2) f *= 4;
-            dst[0] = 255;
-            dst[1] = 255;
-            dst[2] = 255;
-            dst[3] = 255 * clamp(f, 0, (shape == 2) ? 0.6f : 1);
-            dst += 4;
+    } else {
+        flags |= IF_NEAREST;
+        memset(pixels, 0, sizeof(pixels));
+        for (i = 3; i <= 12; i++) {
+            for (j = 3; j <= 12; j++) {
+                dst = pixels + (i * 16 + j) * 4;
+                dst[0] = 255;
+                dst[1] = 255;
+                dst[2] = 255;
+                dst[3] = 255 * 0.6f;
+            }
         }
     }
 
     GL_ForceTexture(0, TEXNUM_PARTICLE);
-    // [sq2] disable linear filtering if shape is square
-    GL_Upload32(pixels, 16, 16, 0, IT_SPRITE, (shape == 1) ? IF_NEAREST : IF_NONE);
-    GL_SetFilterAndRepeat(IT_SPRITE, (shape == 1) ? IF_NEAREST : IF_NONE);
-}
-
-// [sq2] particle shape changed
-static void gl_partshape_changed(cvar_t *self)
-{
-    // delete, regen, and init new particle texture
-    qglDeleteTextures(1, &TEXNUM_PARTICLE);
-    qglGenTextures(1, &TEXNUM_PARTICLE);
-    GL_InitParticleTexture();
+    GL_Upload32(pixels, 16, 16, 0, IT_SPRITE, flags);
+    GL_SetFilterAndRepeat(IT_SPRITE, flags);
 }
 
 static void GL_InitWhiteImage(void)
@@ -967,6 +950,11 @@ static void GL_InitBeamTexture(void)
     GL_SetFilterAndRepeat(IT_SPRITE, IF_NONE);
 }
 
+static void gl_partshape_changed(cvar_t *self)
+{
+    GL_InitParticleTexture();
+}
+
 /*
 ===============
 GL_InitImages
@@ -997,7 +985,6 @@ void GL_InitImages(void)
     gl_intensity = Cvar_Get("intensity", "2", 0);
     gl_invert = Cvar_Get("gl_invert", "0", CVAR_FILES);
     gl_gamma = Cvar_Get("vid_gamma", "1", CVAR_ARCHIVE);
-    // [sq2] particle shape. 0 = default circle. 1 = square. 2 = fuller circle
     gl_partshape = Cvar_Get("gl_partshape", "0", 0);
     gl_partshape->changed = gl_partshape_changed;
 
