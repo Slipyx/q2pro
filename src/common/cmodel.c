@@ -347,7 +347,7 @@ BOX TRACING
 */
 
 // 1/32 epsilon to keep floating point happy
-#define DIST_EPSILON    (0.03125)
+#define DIST_EPSILON    0.03125f
 
 static vec3_t   trace_start, trace_end;
 static vec3_t   trace_mins, trace_maxs;
@@ -622,9 +622,9 @@ recheck:
         if (trace_ispoint)
             offset = 0;
         else
-            offset = fabs(trace_extents[0] * plane->normal[0]) +
-                     fabs(trace_extents[1] * plane->normal[1]) +
-                     fabs(trace_extents[2] * plane->normal[2]);
+            offset = fabsf(trace_extents[0] * plane->normal[0]) +
+                     fabsf(trace_extents[1] * plane->normal[1]) +
+                     fabsf(trace_extents[2] * plane->normal[2]);
     }
 
     // see which sides we need to consider
@@ -639,12 +639,12 @@ recheck:
 
     // put the crosspoint DIST_EPSILON pixels on the near side
     if (t1 < t2) {
-        idist = 1.0 / (t1 - t2);
+        idist = 1.0f / (t1 - t2);
         side = 1;
         frac2 = (t1 + offset + DIST_EPSILON) * idist;
         frac = (t1 - offset + DIST_EPSILON) * idist;
     } else if (t1 > t2) {
-        idist = 1.0 / (t1 - t2);
+        idist = 1.0f / (t1 - t2);
         side = 0;
         frac2 = (t1 - offset - DIST_EPSILON) * idist;
         frac = (t1 + offset + DIST_EPSILON) * idist;
@@ -791,7 +791,7 @@ void CM_TransformedBoxTrace(trace_t *trace, vec3_t start, vec3_t end,
     CM_BoxTrace(trace, start_l, end_l, mins, maxs, headnode, brushmask);
 
     // rotate plane normal into the worlds frame of reference
-    if (rotated && trace->fraction != 1.0) {
+    if (rotated && trace->fraction != 1.0f) {
         TransposeAxis(axis);
         RotatePoint(trace->plane.normal, axis);
     }

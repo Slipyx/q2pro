@@ -25,13 +25,13 @@ void AngleVectors(vec3_t angles, vec3_t forward, vec3_t right, vec3_t up)
     float        angle;
     float        sr, sp, sy, cr, cp, cy;
 
-    angle = angles[YAW] * (M_PI * 2 / 360);
+    angle = DEG2RAD(angles[YAW]);
     sy = sin(angle);
     cy = cos(angle);
-    angle = angles[PITCH] * (M_PI * 2 / 360);
+    angle = DEG2RAD(angles[PITCH]);
     sp = sin(angle);
     cp = cos(angle);
-    angle = angles[ROLL] * (M_PI * 2 / 360);
+    angle = DEG2RAD(angles[ROLL]);
     sr = sin(angle);
     cr = cos(angle);
 
@@ -56,8 +56,7 @@ vec_t VectorNormalize(vec3_t v)
 {
     float    length, ilength;
 
-    length = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
-    length = sqrt(length);         // FIXME
+    length = VectorLength(v);
 
     if (length) {
         ilength = 1 / length;
@@ -74,8 +73,7 @@ vec_t VectorNormalize2(vec3_t v, vec3_t out)
 {
     float    length, ilength;
 
-    length = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
-    length = sqrt(length);         // FIXME
+    length = VectorLength(v);
 
     if (length) {
         ilength = 1 / length;
@@ -741,14 +739,12 @@ and returns 0.
 */
 size_t Q_vscnprintf(char *dest, size_t size, const char *fmt, va_list argptr)
 {
-    size_t ret;
+    if (size) {
+        size_t ret = Q_vsnprintf(dest, size, fmt, argptr);
+        return min(ret, size - 1);
+    }
 
-    if (!size)
-        return 0;
-
-    ret = Q_vsnprintf(dest, size, fmt, argptr);
-
-    return min(ret, size - 1);
+    return 0;
 }
 
 /*
