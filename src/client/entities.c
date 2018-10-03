@@ -115,10 +115,10 @@ entity_update_old(centity_t *ent, const entity_state_t *state, const vec_t *orig
     if (state->frame != ent->current.frame) {
         ent->prev_frame = ent->current.frame;
         ent->anim_start = cl.servertime - cl.frametime;
-        Com_DDPrintf("[%d] anim start %d: %d --> %d [%d]\n",
-                     ent->anim_start, state->number,
-                     ent->prev_frame, state->frame,
-                     cl.frame.number);
+        Com_DDDDPrintf("[%d] anim start %d: %d --> %d [%d]\n",
+                       ent->anim_start, state->number,
+                       ent->prev_frame, state->frame,
+                       cl.frame.number);
     }
 #endif
 
@@ -216,7 +216,7 @@ static void entity_event(int number)
         break;
     case EV_FOOTSTEP:
         if (cl_footsteps->integer)
-            S_StartSound(NULL, number, CHAN_BODY, cl_sfx_footsteps[rand() & 3], 1, ATTN_NORM, 0);
+            S_StartSound(NULL, number, CHAN_BODY, cl_sfx_footsteps[Q_rand() & 3], 1, ATTN_NORM, 0);
         break;
     case EV_FALLSHORT:
         S_StartSound(NULL, number, CHAN_AUTO, S_RegisterSound("player/land1.wav"), 1, ATTN_NORM, 0);
@@ -566,17 +566,17 @@ static void CL_AddPacketEntities(void)
                 float frac;
 
                 if (delta > BASE_FRAMETIME) {
-                    Com_DDPrintf("[%d] anim end %d: %d --> %d\n",
-                                 cl.time, s1->number,
-                                 cent->prev_frame, s1->frame);
+                    Com_DDDDPrintf("[%d] anim end %d: %d --> %d\n",
+                                   cl.time, s1->number,
+                                   cent->prev_frame, s1->frame);
                     cent->prev_frame = s1->frame;
                     frac = 1;
                 } else if (delta > 0) {
                     frac = delta * BASE_1_FRAMETIME;
-                    Com_DDPrintf("[%d] anim run %d: %d --> %d [%f]\n",
-                                 cl.time, s1->number,
-                                 cent->prev_frame, s1->frame,
-                                 frac);
+                    Com_DDDDPrintf("[%d] anim run %d: %d --> %d [%f]\n",
+                                   cl.time, s1->number,
+                                   cent->prev_frame, s1->frame,
+                                   frac);
                 } else {
                     frac = 0;
                 }
@@ -597,7 +597,7 @@ static void CL_AddPacketEntities(void)
         if (renderfx & RF_BEAM) {
             // the four beam colors are encoded in 32 bits of skinnum (hack)
             ent.alpha = 0.30f;
-            ent.skinnum = (s1->skinnum >> ((rand() % 4) * 8)) & 0xff;
+            ent.skinnum = (s1->skinnum >> ((Q_rand() % 4) * 8)) & 0xff;
             ent.model = 0;
         } else {
             // set skin
@@ -846,7 +846,7 @@ static void CL_AddPacketEntities(void)
                 ent.origin[2] += 32;
                 CL_TrapParticles(&ent);
 #if USE_DLIGHTS
-                i = (rand() % 100) + 100;
+                i = (Q_rand() % 100) + 100;
                 V_AddLight(ent.origin, i, 1, 0.8f, 0.1f);
 #endif
             } else if (effects & EF_FLAG1) {

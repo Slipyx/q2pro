@@ -16,6 +16,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#define _GNU_SOURCE
 #include "shared/shared.h"
 #include "shared/list.h"
 #include "common/common.h"
@@ -719,9 +720,8 @@ static int get_fp_info(FILE *fp, file_info_t *info)
 
 FILE *Q_fopen(const char *path, const char *mode)
 {
-#ifndef _GNU_SOURCE
-    if (mode[0] == 'w' && mode[1] == 'x') {
 #ifdef _WIN32
+    if (mode[0] == 'w' && mode[1] == 'x') {
         int flags = _O_WRONLY | _O_CREAT | _O_EXCL | _S_IREAD | _S_IWRITE;
         int fd;
         FILE *fp;
@@ -738,24 +738,8 @@ FILE *Q_fopen(const char *path, const char *mode)
             _close(fd);
 
         return fp;
-#else
-        int flags = O_WRONLY | O_CREAT | O_EXCL;
-        int perm = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-        int fd;
-        FILE *fp;
-
-        fd = open(path, flags, perm);
-        if (fd == -1)
-            return NULL;
-
-        fp = fdopen(fd, "wb");
-        if (fp == NULL)
-            close(fd);
-
-        return fp;
-#endif
     }
-#endif // _GNU_SOURCE
+#endif
 
     return fopen(path, mode);
 }
@@ -934,7 +918,7 @@ fail:
 
 static int check_header_coherency(FILE *fp, packfile_t *entry)
 {
-    unsigned flags, comp_mtd, comp_len, file_len, name_size, xtra_size;
+    unsigned ofs, flags, comp_mtd, comp_len, file_len, name_size, xtra_size;
     byte header[ZIP_SIZELOCALHEADER];
 
     if (os_fseek(fp, entry->filepos, SEEK_SET) == -1)
@@ -965,7 +949,11 @@ static int check_header_coherency(FILE *fp, packfile_t *entry)
             return Q_ERR_NOT_COHERENT;
     }
 
-    entry->filepos += ZIP_SIZELOCALHEADER + name_size + xtra_size;
+    ofs = ZIP_SIZELOCALHEADER + name_size + xtra_size;
+    if (entry->filepos > INT_MAX - ofs)
+        return Q_ERR_NOT_COHERENT;
+
+    entry->filepos += ofs;
     entry->coherent = true;
     return Q_ERR_SUCCESS;
 }
@@ -2084,7 +2072,7 @@ static pack_t *load_pak_file(const char *packfile)
     for (i = 0, dfile = info; i < num_files; i++, dfile++) {
         dfile->filepos = LittleLong(dfile->filepos);
         dfile->filelen = LittleLong(dfile->filelen);
-        if (dfile->filelen > INT_MAX || dfile->filepos > INT_MAX) {
+        if (dfile->filelen > INT_MAX || dfile->filepos > INT_MAX - dfile->filelen) {
             Com_Printf("%s has bad directory structure\n", packfile);
             goto fail;
         }
