@@ -634,16 +634,19 @@ int FS_CreatePath(char *path)
 FS_FCloseFile
 ==============
 */
-void FS_FCloseFile(qhandle_t f)
+int FS_FCloseFile(qhandle_t f)
 {
     file_t *file = file_for_handle(f);
+    int ret;
 
     if (!file)
-        return;
+        return Q_ERR_BADF;
 
+    ret = file->error;
     switch (file->type) {
     case FS_REAL:
-        fclose(file->fp);
+        if (fclose(file->fp))
+            ret = Q_ERRNO;
         break;
     case FS_PAK:
         if (file->unique) {
@@ -653,7 +656,8 @@ void FS_FCloseFile(qhandle_t f)
         break;
 #if USE_ZLIB
     case FS_GZ:
-        gzclose(file->zfp);
+        if (gzclose(file->zfp))
+            ret = Q_ERR_LIBRARY_ERROR;
         break;
     case FS_ZIP:
         if (file->unique) {
@@ -663,10 +667,12 @@ void FS_FCloseFile(qhandle_t f)
         break;
 #endif
     default:
+        ret = Q_ERR_NOSYS;
         break;
     }
 
     memset(file, 0, sizeof(*file));
+    return ret;
 }
 
 static int get_path_info(const char *path, file_info_t *info)
@@ -950,7 +956,7 @@ static int check_header_coherency(FILE *fp, packfile_t *entry)
     }
 
     ofs = ZIP_SIZELOCALHEADER + name_size + xtra_size;
-    if (entry->filepos > INT_MAX - ofs)
+    if (entry->filepos + entry->complen > INT_MAX - ofs)
         return Q_ERR_NOT_COHERENT;
 
     entry->filepos += ofs;
@@ -1818,6 +1824,13 @@ done:
     return len;
 }
 
+static int write_and_close(const void *data, size_t len, qhandle_t f)
+{
+    int ret1 = FS_Write(data, len, f);
+    int ret2 = FS_FCloseFile(f);
+    return ret1 < 0 ? ret1 : ret2;
+}
+
 /*
 ================
 FS_WriteFile
@@ -1830,13 +1843,9 @@ int FS_WriteFile(const char *path, const void *data, size_t len)
 
     // TODO: write to temp file perhaps?
     ret = FS_FOpenFile(path, &f, FS_MODE_WRITE);
-    if (!f) {
-        return ret;
+    if (f) {
+        ret = write_and_close(data, len, f);
     }
-
-    ret = FS_Write(data, len, f);
-
-    FS_FCloseFile(f);
     return ret;
 }
 
@@ -1862,10 +1871,7 @@ bool FS_EasyWriteFile(char *buf, size_t size, unsigned mode,
         return false;
     }
 
-    ret = FS_Write(data, len, f);
-
-    FS_FCloseFile(f);
-
+    ret = write_and_close(data, len, f);
     if (ret < 0) {
         Com_EPrintf("Couldn't write %s: %s\n", buf, Q_ErrorString(ret));
         return false;
@@ -2191,7 +2197,7 @@ static unsigned get_file_info(FILE *fp, unsigned pos, packfile_t *file, size_t *
     comm_size = LittleShortMem(&header[32]);
     file_pos = LittleLongMem(&header[42]);
 
-    if (file_len > INT_MAX || comp_len > INT_MAX || file_pos > INT_MAX)
+    if (file_len > INT_MAX || comp_len > INT_MAX || file_pos > INT_MAX - comp_len)
         return 0;
 
     if (!file_len || !comp_len) {
@@ -2596,10 +2602,7 @@ static int alphacmp(const void *p1, const void *p2)
 FS_ListFiles
 =================
 */
-void **FS_ListFiles(const char *path,
-                    const char *filter,
-                    unsigned   flags,
-                    int        *count_p)
+void **FS_ListFiles(const char *path, const char *filter, unsigned flags, int *count_p)
 {
     searchpath_t    *search;
     packfile_t      *file;
