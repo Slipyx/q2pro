@@ -373,33 +373,24 @@ void Cvar_SetByVar(cvar_t *var, const char *value, from_t from)
                 return;
             }
         }
-    }
 
-    // some cvars may require special processing if set by user from console
-    if (from <= FROM_CONSOLE && com_initialized) {
-        if (var->flags & CVAR_NOSET) {
-            Com_Printf("%s may be set from command line only.\n", var->name);
+        if ((var->flags & CVAR_NOSET) && com_initialized) {
+            // FROM_CMDLINE while com_initialized == true means the second call
+            // to Com_AddEarlyCommands() is changing the value, ignore.
+            if (from != FROM_CMDLINE)
+                Com_Printf("%s may be set from command line only.\n", var->name);
             return;
         }
 
-        if (var->flags & CVAR_LATCH) {
-            // free latched value
-            if (var->latched_string) {
-                if (!strcmp(var->latched_string, value)) {
-                    return; // latched string not changed
-                }
-                Z_Free(var->latched_string);
-                var->latched_string = NULL;
+        if ((var->flags & CVAR_LATCH) && sv_running->integer) {
+            if (var->latched_string && !strcmp(var->latched_string, value)) {
+                return; // latched string not changed
             }
-
-            if (sv_running->integer) {
-                Com_Printf("%s will be changed for next game.\n", var->name);
-                var->latched_string = Z_CvarCopyString(value);
-                return;
-            }
-            // server is down, it's ok to update this cvar now
+            Com_Printf("%s will be changed for next game.\n", var->name);
+            Z_Free(var->latched_string);
+            var->latched_string = Z_CvarCopyString(value);
+            return;
         }
-
     }
 
     // free latched string, if any
