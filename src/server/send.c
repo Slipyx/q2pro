@@ -300,8 +300,7 @@ void SV_Multicast(vec3_t origin, multicast_t to)
             continue;
         }
         // do not send unreliables to connecting clients
-        if (!(flags & MSG_RELIABLE) && (client->state != cs_spawned ||
-                                        client->download || client->nodata)) {
+        if (!(flags & MSG_RELIABLE) && !CLIENT_ACTIVE(client)) {
             continue;
         }
 
@@ -369,8 +368,7 @@ static bool compress_message(client_t *client, int flags)
     if (svs.z.total_out + 5 > msg_write.cursize)
         return false;
 
-    client->AddMessage(client, buffer, svs.z.total_out + 5,
-                       (flags & MSG_RELIABLE) ? true : false);
+    client->AddMessage(client, buffer, svs.z.total_out + 5, flags & MSG_RELIABLE);
     return true;
 #else
     return false;
@@ -395,14 +393,10 @@ void SV_ClientAddMessage(client_t *client, int flags)
         return;
     }
 
-    if (compress_message(client, flags)) {
-        goto clear;
+    if (!compress_message(client, flags)) {
+        client->AddMessage(client, msg_write.data, msg_write.cursize, flags & MSG_RELIABLE);
     }
 
-    client->AddMessage(client, msg_write.data, msg_write.cursize,
-                       (flags & MSG_RELIABLE) ? true : false);
-
-clear:
     if (flags & MSG_CLEAR) {
         SZ_Clear(&msg_write);
     }
@@ -874,7 +868,7 @@ void SV_SendClientMessages(void)
 
     // send a message to each connected client
     FOR_EACH_CLIENT(client) {
-        if (client->state != cs_spawned || client->download || client->nodata)
+        if (!CLIENT_ACTIVE(client))
             goto finish;
 
         if (!SV_CLIENTSYNC(client))
@@ -997,7 +991,7 @@ void SV_SendAsyncPackets(void)
         }
 
         // spawned clients are handled elsewhere
-        if (client->state == cs_spawned && !client->download && !client->nodata && !SV_PAUSED) {
+        if (CLIENT_ACTIVE(client) && !SV_PAUSED) {
             continue;
         }
 

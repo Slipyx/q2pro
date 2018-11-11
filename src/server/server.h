@@ -238,6 +238,9 @@ typedef struct {
 #define FOR_EACH_CLIENT(client) \
     LIST_FOR_EACH(client_t, client, &sv_clientlist, entry)
 
+#define CLIENT_ACTIVE(cl) \
+    ((cl)->state == cs_spawned && !(cl)->download && !(cl)->nodata)
+
 #define PL_S2C(cl) (cl->frames_sent ? \
     (1.0f - (float)cl->frames_acked / cl->frames_sent) * 100.0f : 0.0f)
 #define PL_C2S(cl) (cl->netchan->total_received ? \
@@ -268,14 +271,14 @@ typedef struct client_s {
     int             number;     // client slot number
 
     // client flags
-    unsigned        reconnected: 1;
-    unsigned        nodata: 1;
-    unsigned        has_zlib: 1;
-    unsigned        drop_hack: 1;
+    bool            reconnected: 1;
+    bool            nodata: 1;
+    bool            has_zlib: 1;
+    bool            drop_hack: 1;
 #if USE_ICMP
-    unsigned        unreachable: 1;
+    bool            unreachable: 1;
 #endif
-    unsigned        http_download: 1;
+    bool            http_download: 1;
 
     // userinfo
     char            userinfo[MAX_INFO_STRING];  // name, etc
@@ -408,12 +411,12 @@ typedef struct {
 
 typedef struct {
     list_t  entry;
-    int     len;
     char    string[1];
 } stuffcmd_t;
 
 typedef enum {
     FA_IGNORE,
+    FA_LOG,
     FA_PRINT,
     FA_STUFF,
     FA_KICK,
@@ -428,15 +431,23 @@ typedef struct {
     char            string[1];
 } filtercmd_t;
 
+typedef struct {
+    list_t          entry;
+    filteraction_t  action;
+    char            *var;
+    char            *match;
+    char            *comment;
+} cvarban_t;
+
 #define MAX_MASTERS         8       // max recipients for heartbeat packets
 #define HEARTBEAT_SECONDS   300
 
 typedef struct {
-    list_t entry;
-    netadr_t adr;
-    unsigned last_ack;
-    time_t last_resolved;
-    char name[1];
+    list_t          entry;
+    netadr_t        adr;
+    unsigned        last_ack;
+    time_t          last_resolved;
+    char            name[1];
 } master_t;
 
 typedef struct {
@@ -479,16 +490,18 @@ typedef struct server_static_s {
 
 //=============================================================================
 
-extern list_t      sv_masterlist; // address of the master server
-extern list_t      sv_banlist;
-extern list_t      sv_blacklist;
-extern list_t      sv_cmdlist_connect;
-extern list_t      sv_cmdlist_begin;
-extern list_t      sv_filterlist;
-extern list_t      sv_clientlist; // linked list of non-free clients
+extern list_t       sv_masterlist;  // address of the master server
+extern list_t       sv_banlist;
+extern list_t       sv_blacklist;
+extern list_t       sv_cmdlist_connect;
+extern list_t       sv_cmdlist_begin;
+extern list_t       sv_filterlist;
+extern list_t       sv_cvarbanlist;
+extern list_t       sv_infobanlist;
+extern list_t       sv_clientlist;  // linked list of non-free clients
 
-extern server_static_t     svs;        // persistant server info
-extern server_t            sv;         // local server
+extern server_static_t      svs;        // persistant server info
+extern server_t             sv;         // local server
 
 extern pmoveParams_t    sv_pmp;
 
@@ -703,6 +716,7 @@ void SV_AlignKeyFrames(client_t *client);
 #else
 #define SV_AlignKeyFrames(client) (void)0
 #endif
+cvarban_t *SV_CheckInfoBans(const char *info, bool match_only);
 
 //
 // sv_ccmds.c

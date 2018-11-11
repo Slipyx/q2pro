@@ -27,6 +27,8 @@ LIST_DECL(sv_blacklist);
 LIST_DECL(sv_cmdlist_connect);
 LIST_DECL(sv_cmdlist_begin);
 LIST_DECL(sv_filterlist);
+LIST_DECL(sv_cvarbanlist);
+LIST_DECL(sv_infobanlist);
 LIST_DECL(sv_clientlist);   // linked list of non-free clients
 
 client_t    *sv_client;         // current client
@@ -788,11 +790,7 @@ static bool parse_enhanced_params(conn_params_t *p)
 
         // set zlib
         s = Cmd_Argv(7);
-        if (*s) {
-            p->has_zlib = !!atoi(s);
-        } else {
-            p->has_zlib = true;
-        }
+        p->has_zlib = !*s || atoi(s);
 
         // set minor protocol version
         s = Cmd_Argv(8);
@@ -835,6 +833,7 @@ static char *userinfo_ip_string(void)
 static bool parse_userinfo(conn_params_t *params, char *userinfo)
 {
     char *info, *s;
+    cvarban_t *ban;
 
     // validate userinfo
     info = Cmd_Argv(4);
@@ -888,6 +887,14 @@ static bool parse_userinfo(conn_params_t *params, char *userinfo)
         // force the IP key/value pair so the game can filter based on ip
         if (!Info_SetValueForKey(userinfo, "ip", userinfo_ip_string()))
             return reject("Oversize userinfo string.\n");
+    }
+
+    // reject if there is a kickable userinfo ban
+    if ((ban = SV_CheckInfoBans(userinfo, true)) != NULL) {
+        s = ban->comment;
+        if (!s)
+            s = "Userinfo banned.";
+        return reject("%s\nConnection refused.\n", s);
     }
 
     return true;
@@ -962,7 +969,7 @@ static void init_pmove_and_es_flags(client_t *newcl)
 
     // copy default pmove parameters
     newcl->pmp = sv_pmp;
-    newcl->pmp.airaccelerate = sv_airaccelerate->integer ? true : false;
+    newcl->pmp.airaccelerate = sv_airaccelerate->integer;
 
     // common extensions
     force = 2;
@@ -970,7 +977,7 @@ static void init_pmove_and_es_flags(client_t *newcl)
         newcl->pmp.speedmult = 2;
         force = 1;
     }
-    newcl->pmp.strafehack = sv_strafejump_hack->integer >= force ? true : false;
+    newcl->pmp.strafehack = sv_strafejump_hack->integer >= force;
 
     // r1q2 extensions
     if (newcl->protocol == PROTOCOL_VERSION_R1Q2) {
@@ -999,7 +1006,7 @@ static void init_pmove_and_es_flags(client_t *newcl)
             force = 1;
         }
     }
-    newcl->pmp.waterhack = sv_waterjump_hack->integer >= force ? true : false;
+    newcl->pmp.waterhack = sv_waterjump_hack->integer >= force;
 }
 
 static void send_connect_packet(client_t *newcl, int nctype)
