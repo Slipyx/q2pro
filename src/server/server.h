@@ -97,7 +97,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 typedef struct {
     int         number;
-    unsigned    num_entities;
+    int         num_entities;
     unsigned    first_entity;
     player_packed_t ps;
     int         clientNum;
@@ -210,9 +210,12 @@ typedef enum {
 #define MSG_POOLSIZE        1024
 #define MSG_TRESHOLD        (62 - sizeof(list_t))   // keep message_packet_t 64 bytes aligned
 
-#define MSG_RELIABLE    1
-#define MSG_CLEAR       2
-#define MSG_COMPRESS    4
+#define MSG_RELIABLE        1
+#define MSG_CLEAR           2
+#define MSG_COMPRESS        4
+#define MSG_COMPRESS_AUTO   8
+
+#define ZPACKET_HEADER      5
 
 #define MAX_SOUND_PACKET   14
 
@@ -495,6 +498,7 @@ extern list_t       sv_banlist;
 extern list_t       sv_blacklist;
 extern list_t       sv_cmdlist_connect;
 extern list_t       sv_cmdlist_begin;
+extern list_t       sv_lrconlist;
 extern list_t       sv_filterlist;
 extern list_t       sv_cvarbanlist;
 extern list_t       sv_infobanlist;
