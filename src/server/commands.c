@@ -533,7 +533,7 @@ static void dump_clients(void)
         Com_Printf("%7u ", svs.realtime - client->lastmessage);
         Com_Printf("%-21s ", NET_AdrToString(
                        &client->netchan->remote_address));
-        Com_Printf("%5"PRIz" ", client->rate);
+        Com_Printf("%5i ", client->rate);
         Com_Printf("%2i ", client->protocol);
         Com_Printf("%3i ", client->moves_per_sec);
         Com_Printf("\n");
@@ -610,14 +610,14 @@ static void dump_lag(void)
     client_t    *cl;
 
     Com_Printf(
-        "num name            PLs2c PLc2s Rmin Ravg Rmax dup\n"
-        "--- --------------- ----- ----- ---- ---- ---- ---\n");
+        "num name            PLs2c PLc2s Rmin Ravg Rmax dup scale\n"
+        "--- --------------- ----- ----- ---- ---- ---- --- -----\n");
 
     FOR_EACH_CLIENT(cl) {
-        Com_Printf("%3i %-15.15s %5.2f %5.2f %4d %4d %4d %3d\n",
+        Com_Printf("%3i %-15.15s %5.2f %5.2f %4d %4d %4d %3d %5.3f\n",
                    cl->number, cl->name, PL_S2C(cl), PL_C2S(cl),
                    cl->min_ping, AVG_PING(cl), cl->max_ping,
-                   cl->numpackets - 1);
+                   cl->numpackets - 1, cl->timescale);
     }
 }
 
@@ -786,6 +786,7 @@ void SV_PrintMiscInfo(void)
 #ifdef USE_PACKETDUP
     Com_Printf("packetdup            %d\n", sv_client->numpackets - 1);
 #endif
+    Com_Printf("timescale            %.3f\n", sv_client->timescale);
     Com_TimeDiff(buffer, sizeof(buffer),
                  &sv_client->connect_time, time(NULL));
     Com_Printf("connection time      %s\n", buffer);

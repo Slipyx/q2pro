@@ -287,7 +287,7 @@ typedef struct client_s {
     char            userinfo[MAX_INFO_STRING];  // name, etc
     char            name[MAX_CLIENT_NAME];      // extracted from userinfo, high bits masked
     int             messagelevel;               // for filtering printed messages
-    size_t          rate;
+    unsigned        rate;
     ratelimit_t     ratelimit_namechange;       // for suppressing "foo changed name" flood
 
     // console var probes
@@ -305,6 +305,8 @@ typedef struct client_s {
                                     // commands exhaust it, assume time cheating
     int             num_moves;      // reset every 10 seconds
     int             moves_per_sec;  // average movement FPS
+    int             cmd_msec_used;
+    float           timescale;
 
     int             ping, min_ping, max_ping;
     int             avg_ping_time, avg_ping_count;
@@ -319,7 +321,7 @@ typedef struct client_s {
     unsigned        frameflags;
 
     // rate dropping
-    size_t          message_size[RATE_MESSAGES];    // used to rate drop normal packets
+    unsigned        message_size[RATE_MESSAGES];    // used to rate drop normal packets
     int             suppress_count;                 // number of messages rate suppressed
     unsigned        send_time, send_delta;          // used to rate drop async packets
 
@@ -345,8 +347,8 @@ typedef struct client_s {
     list_t              msg_unreliable_list;
     list_t              msg_reliable_list;
     message_packet_t    *msg_pool;
-    size_t              msg_unreliable_bytes;   // total size of unreliable datagram
-    size_t              msg_dynamic_bytes;      // total size of dynamic memory allocated
+    unsigned            msg_unreliable_bytes;   // total size of unreliable datagram
+    unsigned            msg_dynamic_bytes;      // total size of dynamic memory allocated
 
     // per-client baseline chunks
     entity_packed_t *baselines[SV_BASELINES_CHUNKS];
@@ -483,6 +485,7 @@ typedef struct server_static_s {
 #endif
 
     unsigned        last_heartbeat;
+    unsigned        last_timescale_check;
 
     ratelimit_t     ratelimit_status;
     ratelimit_t     ratelimit_auth;
